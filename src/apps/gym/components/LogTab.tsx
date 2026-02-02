@@ -157,7 +157,7 @@ export function LogTab({
                     if (input && !alreadyExists) {
                       filtered.unshift({
                         inputValue: input,
-                        title: `Create \"${input}\"`,
+                        title: `Create "${input}"`,
                       });
                     }
 
@@ -274,7 +274,7 @@ export function LogTab({
                     ) {
                       filtered.push({
                         inputValue: params.inputValue,
-                        title: `Add \"${params.inputValue}\"`,
+                        title: `Add "${params.inputValue}"`,
                       } as ExerciseOption);
                     }
                     return filtered;

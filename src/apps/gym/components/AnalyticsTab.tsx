@@ -27,6 +27,8 @@ import { computeAnalytics } from '../utils/analyticsUtils';
 import { computeExerciseProgress, formatBestSet } from '../utils/exerciseProgressUtils';
 import { computeOverview } from '../utils/overviewUtils';
 
+type OverviewSeriesPoint = ReturnType<typeof computeOverview>['series'][number];
+
 interface AnalyticsTabProps {
   entries: GymEntry[];
   periodDays: number;
@@ -40,13 +42,13 @@ export function AnalyticsTab({ entries, periodDays, onPeriodChange }: AnalyticsT
 
   const overviewSeriesForChart = useMemo(() => {
     return overview.series.filter((p) => (p.workouts || 0) > 0 || (p.liftedTons || 0) > 0);
-  }, [overview.series]);
+  }, [overview]);
 
   const overviewByIso = useMemo(() => {
-    const m = new Map<string, (typeof overview.series)[number]>();
+    const m = new Map<string, OverviewSeriesPoint>();
     for (const p of overviewSeriesForChart) m.set(p.dateISO, p);
     return m;
-  }, [overviewSeriesForChart, overview.series]);
+  }, [overviewSeriesForChart]);
 
   const openExercise = useMemo(() => {
     if (!openExerciseKey) return null;
@@ -63,10 +65,10 @@ export function AnalyticsTab({ entries, periodDays, onPeriodChange }: AnalyticsT
   }, [progress]);
 
   const progressByIso = useMemo(() => {
-    const m = new Map<string, (typeof progress)[number]>();
+    const m = new Map<string, (typeof progressForChart)[number]>();
     for (const p of progressForChart) m.set(p.dateISO, p);
     return m;
-  }, [progressForChart, progress]);
+  }, [progressForChart]);
 
   const renderDelta = (val: number | null) => {
     if (val === null) return <TrendingFlatIcon fontSize="small" color="disabled" />;
