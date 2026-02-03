@@ -22,7 +22,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import type { ExerciseOption, TemplateExercise, Workout, WorkoutTemplate } from '../types';
 import { exerciseKey } from '../gymStore';
-import dayjs, { type Dayjs } from 'dayjs';
+import dayjs from 'dayjs';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
