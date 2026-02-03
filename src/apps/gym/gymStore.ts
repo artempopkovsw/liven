@@ -25,9 +25,17 @@ export interface Workout {
   sets: WorkoutSet[];
 }
 
+export interface WorkoutTemplate {
+  id: string;
+  name: string;
+  exercises: Array<{ name: string; reps: number; sets: number }>;
+  createdAt: number;
+}
+
 const ENTRIES_KEY = 'gym:entries:v1';
 const WORKOUTS_KEY = 'gym:workouts:v1';
 const EXERCISES_KEY = 'gym:exercises:v1';
+const TEMPLATES_KEY = 'gym:templates:v1';
 
 export function exerciseKey(name: string): string {
   return (name || '').trim().toLowerCase();
@@ -46,6 +54,50 @@ function uniqueExercises(names: string[]): string[] {
   }
   out.sort((a, b) => a.localeCompare(b));
   return out;
+}
+
+function uniqueTemplateExercisesInOrder(
+  items: Array<{ name: string; reps: number; sets: number }>
+): Array<{ name: string; reps: number; sets: number }> {
+  const seen = new Set<string>();
+  const out: Array<{ name: string; reps: number; sets: number }> = [];
+  for (const it of items || []) {
+    const name = String((it as any)?.name || '').trim();
+    if (!name) continue;
+    const k = exerciseKey(name);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push({
+      name,
+      reps: Math.max(1, Number((it as any)?.reps) || 0) || 8,
+      sets: Math.max(1, Number((it as any)?.sets) || 0) || 3,
+    });
+  }
+  return out;
+}
+
+function coerceTemplateExercises(raw: unknown): Array<{ name: string; reps: number; sets: number }> {
+  if (!Array.isArray(raw)) return [];
+
+  // Legacy: string[]
+  if (raw.every((x) => typeof x === 'string')) {
+    return uniqueTemplateExercisesInOrder(
+      (raw as string[]).map((name) => ({
+        name,
+        reps: 8,
+        sets: 3,
+      }))
+    );
+  }
+
+  // Current: {name,reps,sets}[] (or slightly different shapes)
+  return uniqueTemplateExercisesInOrder(
+    (raw as any[]).map((x) => ({
+      name: String(x?.name || x?.exercise || ''),
+      reps: Number(x?.reps) || 0,
+      sets: Number(x?.sets) || 0,
+    }))
+  );
 }
 
 function randomId() {
@@ -80,6 +132,43 @@ export async function loadExercises(): Promise<string[]> {
 
 export async function saveExercises(exercises: string[]): Promise<boolean> {
   return setJSON(EXERCISES_KEY, uniqueExercises(exercises));
+}
+
+export async function loadWorkoutTemplates(): Promise<WorkoutTemplate[]> {
+  const data = await getJSON<WorkoutTemplate[]>(TEMPLATES_KEY);
+  const list = Array.isArray(data) ? data : [];
+  return list
+    .map((t) => ({
+      id: (t as any)?.id || randomId(),
+      name: String((t as any)?.name || '').trim(),
+      exercises: coerceTemplateExercises((t as any)?.exercises),
+      createdAt: Number((t as any)?.createdAt) || Date.now(),
+    }))
+    .filter((t) => t.name);
+}
+
+export async function saveWorkoutTemplates(templates: WorkoutTemplate[]): Promise<boolean> {
+  return setJSON(
+    TEMPLATES_KEY,
+    (templates || []).map((t) => ({
+      id: t.id,
+      name: (t.name || '').trim(),
+      exercises: uniqueTemplateExercisesInOrder((t.exercises || []) as any),
+      createdAt: t.createdAt || Date.now(),
+    }))
+  );
+}
+
+export function createWorkoutTemplate(input: {
+  name: string;
+  exercises: Array<{ name: string; reps: number; sets: number }>;
+}): WorkoutTemplate {
+  return {
+    id: randomId(),
+    name: (input.name || '').trim(),
+    exercises: uniqueTemplateExercisesInOrder((input.exercises || []) as any),
+    createdAt: Date.now(),
+  };
 }
 
 export function createGymEntry(input: {

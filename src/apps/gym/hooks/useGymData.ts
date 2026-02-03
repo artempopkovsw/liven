@@ -1,17 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  createWorkoutTemplate,
   createWorkout,
   createWorkoutSet,
   exerciseKey,
   flattenWorkoutsToEntries,
   loadExercises,
   loadGymEntries,
+  loadWorkoutTemplates,
   loadWorkouts,
   migrateEntriesToWorkouts,
   saveExercises,
+  saveWorkoutTemplates,
   saveWorkouts,
 } from '../gymStore';
-import type { Workout, WorkoutSet } from '../types';
+import type { TemplateExercise, Workout, WorkoutSet, WorkoutTemplate } from '../types';
 import { parseISODate } from '../utils/dateUtils';
 import { volume } from '../utils/metricsUtils';
 
@@ -19,15 +22,17 @@ export function useGymData() {
   const [loading, setLoading] = useState(true);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [exercises, setExercises] = useState<string[]>([]);
+  const [templates, setTemplates] = useState<WorkoutTemplate[]>([]);
   const [selectedWorkoutId, setSelectedWorkoutId] = useState<string>('');
 
   useEffect(() => {
     let alive = true;
     (async () => {
-      const [loadedWorkouts, loadedEntries, loadedExercises] = await Promise.all([
+      const [loadedWorkouts, loadedEntries, loadedExercises, loadedTemplates] = await Promise.all([
         loadWorkouts(),
         loadGymEntries(),
         loadExercises(),
+        loadWorkoutTemplates(),
       ]);
       if (!alive) return;
 
@@ -49,6 +54,7 @@ export function useGymData() {
       }
 
       setExercises(Array.isArray(loadedExercises) ? loadedExercises : []);
+      setTemplates(Array.isArray(loadedTemplates) ? loadedTemplates : []);
       setLoading(false);
     })();
     return () => {
@@ -64,6 +70,11 @@ export function useGymData() {
   const persistExercises = async (next: string[]) => {
     setExercises(next);
     await saveExercises(next);
+  };
+
+  const persistTemplates = async (next: WorkoutTemplate[]) => {
+    setTemplates(next);
+    await saveWorkoutTemplates(next);
   };
 
   const sortedWorkouts = useMemo(() => {
@@ -220,10 +231,36 @@ export function useGymData() {
     }
   };
 
+  const addTemplate = async (name: string, templateExercises: TemplateExercise[]) => {
+    const t = createWorkoutTemplate({ name, exercises: templateExercises as any });
+    const next = [t, ...templates];
+    await persistTemplates(next);
+    return t;
+  };
+
+  const updateTemplate = async (templateId: string, name: string, templateExercises: TemplateExercise[]) => {
+    const next = templates.map((t) =>
+      t.id === templateId
+        ? {
+            ...t,
+            name: (name || '').trim(),
+            exercises: templateExercises,
+          }
+        : t
+    );
+    await persistTemplates(next);
+  };
+
+  const deleteTemplate = async (templateId: string) => {
+    const next = templates.filter((t) => t.id !== templateId);
+    await persistTemplates(next);
+  };
+
   return {
     loading,
     workouts,
     exercises,
+    templates,
     selectedWorkoutId,
     setSelectedWorkoutId,
     sortedWorkouts,
@@ -239,5 +276,8 @@ export function useGymData() {
     deleteWorkoutSet,
     deleteOneWorkoutSetBySignature,
     addExercise,
+    addTemplate,
+    updateTemplate,
+    deleteTemplate,
   };
 }

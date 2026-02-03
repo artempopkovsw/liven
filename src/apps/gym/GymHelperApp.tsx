@@ -1,7 +1,7 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
 import EditNoteIcon from '@mui/icons-material/EditNote';
-import HistoryIcon from '@mui/icons-material/History';
+import ViewListIcon from '@mui/icons-material/ViewList';
 import {
   AppBar,
   BottomNavigation,
@@ -17,15 +17,17 @@ import {
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnalyticsTab } from './components/AnalyticsTab';
-import { HistoryTab } from './components/HistoryTab';
+import { WorkoutsTab } from './components/HistoryTab';
 import { LogTab } from './components/LogTab';
 import { useGymData } from './hooks/useGymData';
 import { todayISO } from './utils/dateUtils';
+import type { TemplateExercise } from './types';
 
 export function GymHelperApp() {
   const navigate = useNavigate();
   const [tab, setTab] = useState(0);
   const [date, setDate] = useState(todayISO());
+  const [activeTemplateExercises, setActiveTemplateExercises] = useState<TemplateExercise[] | null>(null);
   const [periodDays, setPeriodDays] = useState(30);
 
   const {
@@ -38,12 +40,16 @@ export function GymHelperApp() {
     selectedWorkoutGroups,
     selectedWorkoutTotalVolume,
     entries,
+    templates,
     addWorkout,
     addSets,
     deleteWorkout,
     deleteWorkoutSet,
     deleteOneWorkoutSetBySignature,
     addExercise,
+    addTemplate,
+    updateTemplate,
+    deleteTemplate,
   } = useGymData();
 
   const workoutsForSelectedDate = useMemo(() => {
@@ -52,14 +58,45 @@ export function GymHelperApp() {
 
   const handleDateChange = (newDate: string) => {
     setDate(newDate);
+    setActiveTemplateExercises(null);
     if (selectedWorkout && selectedWorkout.date !== newDate) {
       setSelectedWorkoutId('');
     }
   };
 
+  const handleSelectWorkout = (id: string) => {
+    setSelectedWorkoutId(id);
+    setActiveTemplateExercises(null);
+  };
+
   const handleCreateWorkout = async (name: string) => {
     const workout = await addWorkout(date, name);
     setSelectedWorkoutId(workout.id);
+    setActiveTemplateExercises(null);
+  };
+
+  const handleUseTemplate = async (templateId: string) => {
+    const t = templates.find((x) => x.id === templateId);
+    if (!t) return;
+    const d = todayISO();
+    setDate(d);
+    for (const ex of t.exercises) void addExercise(ex.name);
+    const workout = await addWorkout(d, t.name);
+    setSelectedWorkoutId(workout.id);
+    setActiveTemplateExercises(t.exercises);
+    setTab(0);
+  };
+
+  const handleUseTemplateForDate = async (templateId: string, forDate: string) => {
+    const t = templates.find((x) => x.id === templateId);
+    if (!t) return;
+    const d = (forDate || '').trim() || todayISO();
+    setDate(d);
+    for (const ex of t.exercises) void addExercise(ex.name);
+    const workout = await addWorkout(d, t.name);
+    setSelectedWorkoutId(workout.id);
+    setActiveTemplateExercises(t.exercises);
+    setTab(0);
   };
 
   const handleAddSets = async (exercise: string, weightKg: number, reps: number, count: number) => {
@@ -105,22 +142,38 @@ export function GymHelperApp() {
             onDateChange={handleDateChange}
             workoutsForDate={workoutsForSelectedDate}
             selectedWorkout={selectedWorkout}
-            onSelectWorkout={setSelectedWorkoutId}
+            onSelectWorkout={handleSelectWorkout}
             onCreateWorkout={handleCreateWorkout}
+            templates={templates}
+            onUseTemplate={(templateId) => void handleUseTemplateForDate(templateId, date)}
             exerciseOptions={exerciseOptions}
             onAddSets={handleAddSets}
             onAddExercise={addExercise}
             selectedWorkoutGroups={selectedWorkoutGroups}
             selectedWorkoutTotalVolume={selectedWorkoutTotalVolume}
             onDeleteOneSet={handleDeleteOneSet}
+            templateExercises={activeTemplateExercises || undefined}
+            allWorkouts={sortedWorkouts}
           />
         )}
 
         {tab === 1 && (
-          <HistoryTab
+          <WorkoutsTab
             sortedWorkouts={sortedWorkouts}
             onDeleteWorkout={deleteWorkout}
             onDeleteWorkoutSet={deleteWorkoutSet}
+            exerciseOptions={exerciseOptions}
+            templates={templates}
+            onCreateTemplate={(name, exercises) => {
+              void addTemplate(name, exercises);
+              for (const ex of exercises) void addExercise(ex.name);
+            }}
+            onUpdateTemplate={(id, name, exercises) => {
+              void updateTemplate(id, name, exercises);
+              for (const ex of exercises) void addExercise(ex.name);
+            }}
+            onDeleteTemplate={(id) => void deleteTemplate(id)}
+            onUseTemplate={(id) => void handleUseTemplate(id)}
           />
         )}
 
@@ -172,8 +225,8 @@ export function GymHelperApp() {
               }}
             />
             <BottomNavigationAction
-              label="History"
-              icon={<HistoryIcon sx={{ fontSize: 34 }} />}
+              label="Workouts"
+              icon={<ViewListIcon sx={{ fontSize: 34 }} />}
               showLabel={tab === 1}
               sx={{
                 minWidth: 0,

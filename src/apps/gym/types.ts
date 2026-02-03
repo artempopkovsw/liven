@@ -23,6 +23,19 @@ export interface Workout {
   sets: WorkoutSet[];
 }
 
+export interface TemplateExercise {
+  name: string;
+  reps: number;
+  sets: number;
+}
+
+export interface WorkoutTemplate {
+  id: string;
+  name: string;
+  exercises: TemplateExercise[];
+  createdAt: number;
+}
+
 export interface ExerciseAgg {
   exercise: string;
   key: string;
